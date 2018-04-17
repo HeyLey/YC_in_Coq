@@ -1,45 +1,34 @@
 Import Nat.
 
-Context {Tt Vt: Type}.
-    
-Inductive ter : Type :=
-    | T : Tt -> ter.
-    
-Inductive var : Type :=
-    | V : Vt -> var.
-    
-Inductive symbol : Type :=
-    | Ts : ter -> symbol
-    | Vs : var -> symbol.
-    
-Definition phrase := list symbol.
+Add LoadPath "..".
+Require Import CFG.Definitions.
 
-Inductive rule : Type :=
-    | R : var -> phrase -> rule.
+Module Base.
 
-Inductive dot_rule : Type :=
-    | dR : var -> phrase -> phrase -> dot_rule.
+  Import Definitions.
 
-Definition grammar := list rule.
+  Context {Tt Vt: Type}.
 
-Inductive SPPF_node : Type :=
-    | symbol_node : symbol -> nat -> nat -> SPPF_node
-    | intermediate_node :  dot_rule -> nat -> nat ->  SPPF_node.
+  Inductive SPPF_node : Type :=
+  | symbol_node : (@symbol Tt Vt)  -> nat -> nat -> SPPF_node
+  | epsilon_node: nat -> nat -> SPPF_node
+  | intermediate_node :  @phrase Tt Vt -> nat -> nat ->  SPPF_node.
 
-Inductive SPPF_packed_node : Type :=
-    | single_packed_node : dot_rule -> nat -> SPPF_node -> SPPF_packed_node
-    | double_packed_node : dot_rule -> nat -> SPPF_node -> SPPF_node -> SPPF_packed_node.
+  Inductive SPPF_packed_node : Type :=
+  | mk_packed_node :  @phrase Tt Vt -> nat -> SPPF_node -> SPPF_node -> SPPF_packed_node.
 
-Inductive SPPF_rel : Type :=
-    | sr : SPPF_node -> SPPF_packed_node -> SPPF_rel.
+  Inductive SPPF_rel : Type :=
+    | sr : SPPF_node -> SPPF_node -> SPPF_rel
+    | sp : SPPF_node -> SPPF_packed_node -> SPPF_rel.
 
-Record SPPF :=
+  Record SPPF :=
   mkSPPF {
-    root : SPPF_node;
     nodes : list SPPF_node;
     packed_node : list SPPF_packed_node;
     relation : list SPPF_rel;
-  }.
+    }.
+
+End Base.
 
 
 
