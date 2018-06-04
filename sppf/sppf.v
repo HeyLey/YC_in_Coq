@@ -18,7 +18,6 @@ Module Base.
     | refl (p : list symbol) : ext_der G p p
     | inDer A p (in_der : (der G A p)): ext_der G [Vs A] p.
 
-
   Inductive SPPF_node : Type :=
   | mk_terminal_node : Tt  -> nat -> nat -> SPPF_node
   | mk_epsilon_node: nat -> nat -> SPPF_node
@@ -40,7 +39,7 @@ Module Base.
 
   Definition SPPF_rel_to_nodes (r : SPPF_rel) : list SPPF_node :=
     match r with
-    |  mk_rel p v n => match n with
+    | mk_rel p v n => match n with
                        | mk_packed_node1 n1 => [p; n1]
                        | mk_packed_node2 n1 n2 => [p; n1; n2]
                        end
@@ -740,10 +739,177 @@ Module Base.
     }
   Qed.
 
+
+  Definition symbol_to_sppf_node (s : (@symbol Tt Vt)) : SPPF_node :=
+    match s with
+    |  Ts (T t) => (mk_terminal_node t 0 0)
+    |  Vs (V v) => (mk_nonterminal_node v 0 0)
+    end.
+
+  Definition mk_symbol_rel (p: SPPF_node) (vp : valid_parent p) (s : (@symbol Tt Vt)) : SPPF_rel :=
+    mk_rel vp (mk_packed_node1 (symbol_to_sppf_node s)).
+
+  Definition mk_rel2 (p : SPPF_node) (vp : valid_parent p)
+             (l : SPPF_node) (r : (@symbol Tt Vt)) : SPPF_rel :=
+    mk_rel vp (mk_packed_node2 l (symbol_to_sppf_node r)).
+
+  Fixpoint rule_to_sppf_int (n : SPPF_node) (vp : valid_parent n) (rev_p : (@phrase Tt Vt) ) : SPPF :=
+     match rev_p with
+     |  [] => [mk_rel vp (mk_packed_node1 (mk_epsilon_node 0 0))]
+     |  [s] => [mk_symbol_rel vp s]
+     |  s1 :: t => let vp2 := mk_intermediate_node_parent t 0 0 in
+                     (mk_rel2 vp (mk_intermediate_node t 0 0) s1) :: (rule_to_sppf_int vp2 t)
+     end.
+
+  Definition rule_to_sppf (r : (@rule Tt Vt)) : SPPF :=
+    match r with
+      R (V s) p => rule_to_sppf_int (mk_nonterminal_node_parent s 0 0) (rev p)
+    end.
+
+
+  Definition grammar_to_sppf (g : (@grammar Tt Vt)) : SPPF :=
+    flat_map rule_to_sppf g.
+
+  Inductive sppf_s_der (sppf: SPPF) : SPPF_node -> (@phrase Tt Vt) -> Prop :=
+  |  s_terDer (t : Tt) (from : nat) (to : nat) :
+       sppf_s_der sppf (mk_terminal_node t from to) [Ts (T t)]
+  |  s_noterDer (v : Vt) (from : nat) (to : nat) :
+       sppf_s_der sppf (mk_nonterminal_node v from to) [Vs (V v)]
+  |  s_epsilonDer (from : nat) (to : nat) :
+       sppf_s_der sppf (mk_epsilon_node from to) []
+  |  s_mkRel1 p (vp : valid_parent p) ch1 w1 : In (mk_rel vp (mk_packed_node1 ch1)) sppf ->
+       (sppf_s_der sppf ch1 w1) -> sppf_s_der sppf p w1
+  |  s_mkRel2 p (vp : valid_parent p) ch1 ch2 w1 w2 :
+       In (mk_rel vp (mk_packed_node2 ch1 ch2)) sppf ->
+       (sppf_s_der sppf ch1 w1) -> (sppf_s_der sppf ch2 w2) -> sppf_s_der sppf p (w1 ++ w2).
+
+
+(*
+  Theorem trans_rev_0 (g : grammar) (v : Vt) (p : phrase)
+           (d : (sppf_s_der (grammar_to_sppf g) (mk_nonterminal_node v 0 0) p)) : der g (V v) p.
+  Proof.
+    remember (mk_nonterminal_node v 0 0) as n.
+    remember (grammar_to_sppf g) as sppf.
+    revert v Heqn.
+    induction d.
+    { intros; discriminate. }
+    { intros.
+      injection Heqn as v_eq.
+      rewrite v_eq.
+      apply vDer.
+    }
+    { intros; discriminate. }
+    { intros.
+      destruct vp.
+      {
+        admit.
+      }
+      { discriminate. }
+    }
+    {
+
+    }
+ *)
+
+
+  Definition node_to_phrase (s: SPPF_node) : (@phrase Tt Vt)  :=
+  match s with
+  | mk_terminal_node t from to => [Ts (T t)]
+  | mk_epsilon_node from to => []
+  | mk_nonterminal_node v from to => [Vs (V v)]
+  | mk_intermediate_node p from to => p
+  end.
+
+  Theorem rule_conversion_prop (g : grammar)  (r : (@rule Tt Vt)):
+     In r g ->
+     forall rel, In rel (rule_to_sppf r) -> In rel (grammar_to_sppf g).
+  Proof.
+    intros InH1 rel InH2.
+    induction g.
+    contradiction.
+    simpl.
+    apply in_or_app.
+    destruct InH1.
+    { left.
+      rewrite H.
+      exact InH2.
+    }
+    { right.
+      apply IHg; apply H.
+    }
+  Qed.
+
+  Definition is_prefix {A} (pr l : list A) := exists s,  pr ++ s = l.
+
+  Theorem prefix_th a u p0 (g : (@grammar Tt Vt)):
+    In (R a p0) g -> is_prefix u p0 ->
+    exists p (vp : valid_parent p) pn, In (mk_rel vp pn) (grammar_to_sppf g).
+
+  Theorem trans_rev_1 (g : grammar) (s : SPPF_node) (p u : phrase):
+    (derf g u p) ->
+    ((exists v, u = [Vs (V v)] /\ s = mk_nonterminal_node v 0 0) \/
+     (exists a p0, (In (R a p0) g) /\ (is_prefix u p0) /\ s = mk_intermediate_node u 0 0)) ->
+    (sppf_s_der (grammar_to_sppf g) s p).
+  Proof.
+    intro D.
+    induction D.
+    {
+      intro.
+      destruct H.
+      {
+        destruct H as [v [H1 H2]].
+        rewrite H1.
+        rewrite H2.
+        apply s_noterDer.
+      }
+      {
+        destruct H as [a [p0 [H1 [H2 H3]]]].
+
+      }
+
+      rewrite Hequ.
+      destruct s.
+      { simpl.
+        apply s_terDer.
+      }
+      { simpl.
+        apply s_epsilonDer.
+      }
+      { simpl.
+        apply s_noterDer.
+      }
+      { simpl.
+        admit.
+      }
+    }
+    { intros.
+      assert (forall rel, In rel (rule_to_sppf (R A u)) -> In rel (grammar_to_sppf g)).
+      apply rule_conversion_prop; exact H; clear H.
+      destruct A as [v0].
+      admit.
+    }
+    { intros.
+      destruct u.
+      { assert (w = []) as EqW.
+        { remember [] in D2.
+          destruct D2.
+          - exact Heql.
+          - discriminate.
+          - discriminate.
+        }
+        rewrite EqW.
+        clear EqW IHD2.
+        rewrite app_nil_r.
+        apply IHD1; exact Hequ.
+      }
+      {
+
+      }
+    }
+}
+
+
 End Base.
-
-
-
 
 
 
