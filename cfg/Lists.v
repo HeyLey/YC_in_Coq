@@ -61,12 +61,14 @@ Module Lists.
 
     Lemma slists_slist (X : Type) (xs ys : list X) (p : X -> Prop) (D : forall x, dec (p x)) :
       ys el slists p  xs <-> slist p ys xs.
-    Proof with (apply in_map_iff in H ; destruct H as [ys' [H0 H1]] ; subst ; auto).
+    Proof. 
       split.
       - revert ys.
         induction xs as [| s xs' IHu] ; intros ys H ; simpl in H.
         + destruct H as [H | H] ; [ rewrite <- H ; constructor | tauto ].
-        + decide (p s) ; [ apply in_app_iff in H ; destruct H as [H | H] | ] ; auto...
+        + decide (p s) ; [ apply in_app_iff in H ; destruct H as [H | H] | ] ; auto.
+          (apply in_map_iff in H; destruct H as [ys' [H0 H1]] ; subst ; auto).
+          (apply in_map_iff in H; destruct H as [ys' [H0 H1]] ; subst ; auto).
       - induction 1 as [| s ys xs H H0 IH | s ys xs H IH] ; simpl ; auto.
         * decide (p s) ; firstorder.
         * assert (H1: exists ys', s::ys' = s::ys /\ ys' el (slists p xs)) by firstorder.

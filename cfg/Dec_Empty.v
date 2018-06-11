@@ -1,4 +1,4 @@
-Require Export Definitions Derivation Symbols.
+Require Export cfg.Definitions Derivation Symbols.
 
 Module Dec_Empty.
 

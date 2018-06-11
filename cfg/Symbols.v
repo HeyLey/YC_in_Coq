@@ -1,4 +1,4 @@
-Require Export Definitions.
+Require Export cfg.Definitions.
 
 Module Symbols.
 
